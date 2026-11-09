@@ -58,7 +58,7 @@ export default function Home() {
           </div>
 
           <a
-            href="#categorias"
+            href="/explorar"
             className="rounded-full bg-[#123B2C] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#285843]"
           >
             Explorar
