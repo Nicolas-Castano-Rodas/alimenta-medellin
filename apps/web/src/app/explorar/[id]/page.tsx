@@ -94,9 +94,11 @@ async function ProductDetails({
             </h1>
 
             <p className="mt-5 leading-8 text-[#68786D]">
-              Producto ficticio utilizado para demostrar cómo
-              funcionarán las publicaciones de alimentos excedentes
-              en ALIMENTA. No corresponde a una oferta disponible.
+              {product.description}
+            </p>
+
+            <p className="mt-3 text-sm font-semibold text-[#4E8B55]">
+              Publicación ficticia de demostración. No disponible para compra.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -127,6 +129,33 @@ async function ProductDetails({
                 </p>
                 <p className="mt-1 font-bold">
                   Pendientes de implementación
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-[#68786D]">
+                  Cantidad ilustrativa
+                </p>
+                <p className="mt-1 font-bold">
+                  📦 {product.quantity} {product.unit}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-[#68786D]">
+                  Información de conservación
+                </p>
+                <p className="mt-1 font-bold">
+                  {product.storage}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-[#68786D]">
+                  Condiciones de recogida
+                </p>
+                <p className="mt-1 font-bold">
+                  {product.pickup}
                 </p>
               </div>
             </div>
