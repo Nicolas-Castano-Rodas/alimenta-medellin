@@ -1,6 +1,7 @@
 
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatPrice, products } from "@/lib/products";
@@ -75,11 +76,25 @@ async function ProductDetails({
 
         <div className="grid gap-10 lg:grid-cols-2">
           <div className="relative flex min-h-[350px] items-center justify-center rounded-[2.5rem] bg-[#E4EFE0] sm:min-h-[500px]">
-            <span className="text-9xl sm:text-[180px]" aria-hidden="true">
-              {product.emoji}
-            </span>
+            {product.imagePath ? (
+              <Image
+                src={product.imagePath}
+                alt={`Fotografía ilustrativa de ${product.name}`}
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="rounded-[2.5rem] object-cover"
+                priority
+              />
+            ) : (
+              <span
+                className="text-9xl sm:text-[180px]"
+                aria-hidden="true"
+              >
+                {product.emoji}
+              </span>
+            )}
 
-            <span className="absolute left-6 top-6 rounded-full bg-[#123B2C] px-5 py-3 font-bold text-white">
+            <span className="absolute left-6 top-6 z-10 rounded-full bg-[#123B2C] px-5 py-3 font-bold text-white">
               -{discount}% de ejemplo
             </span>
           </div>

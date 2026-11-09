@@ -1,4 +1,5 @@
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   formatPrice,
@@ -25,12 +26,22 @@ export function ProductCard({ product }: ProductCardProps) {
         aria-label={`Ver detalles de ${product.name}`}
       >
         <div className="relative flex h-56 items-center justify-center overflow-hidden bg-[#EAF1E4]">
-          <span
-            className="text-8xl transition-transform duration-300 group-hover:scale-110"
-            aria-hidden="true"
-          >
-            {product.emoji}
-          </span>
+          {product.imagePath ? (
+            <Image
+              src={product.imagePath}
+              alt={`Fotografía ilustrativa de ${product.name}`}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <span
+              className="text-8xl transition-transform duration-300 group-hover:scale-110"
+              aria-hidden="true"
+            >
+              {product.emoji}
+            </span>
+          )}
 
           {discount > 0 && (
             <span className="absolute left-5 top-5 rounded-full bg-[#123B2C] px-4 py-2 text-sm font-bold text-white">
