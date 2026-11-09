@@ -1,4 +1,6 @@
 
+import Link from "next/link";
+
 const categories = [
   { icon: "🥬", name: "Frutas y verduras", detail: "Productos frescos" },
   { icon: "🥖", name: "Panadería", detail: "Pan y repostería" },
@@ -57,12 +59,12 @@ export default function Home() {
             </a>
           </div>
 
-          <a
+          <Link
             href="/explorar"
             className="rounded-full bg-[#123B2C] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#285843]"
           >
             Explorar
-          </a>
+          </Link>
         </nav>
       </header>
 
