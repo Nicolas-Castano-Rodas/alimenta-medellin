@@ -7,3 +7,5 @@ coverage/
 !.env.example
 *.tsbuildinfo
 *.log
+# Prisma Client generado
+/src/generated/prisma/
