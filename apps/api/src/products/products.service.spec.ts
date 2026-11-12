@@ -15,6 +15,8 @@ describe("ProductsService", () => {
   const findFirst = vi.fn();
   const findMany = vi.fn();
   const create = vi.fn();
+  const updateMany = vi.fn();
+  const findProduct = vi.fn();
 
   const prisma = {
     business: {
@@ -23,6 +25,8 @@ describe("ProductsService", () => {
     product: {
       create,
       findMany,
+      updateMany,
+      findFirst: findProduct,
     },
   } as unknown as PrismaService;
 
@@ -141,5 +145,156 @@ describe("ProductsService", () => {
         take: 50,
       }),
     );
+  });
+
+  it("consulta únicamente productos de establecimientos propios", async () => {
+    findMany.mockResolvedValue([]);
+
+    await service.findMine("propietario-1");
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          business: {
+            ownerId: "propietario-1",
+          },
+        },
+      }),
+    );
+  });
+
+  it("permite consultar productos inactivos del propietario", async () => {
+    findMany.mockResolvedValue([
+      {
+        id: "producto-1",
+        name: "Combo de Pan Artesanal",
+        active: false,
+        quantity: 10,
+      },
+    ]);
+
+    const products = await service.findMine("propietario-1");
+
+    expect(products).toHaveLength(1);
+    expect(products[0].active).toBe(false);
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          business: {
+            ownerId: "propietario-1",
+          },
+        },
+      }),
+    );
+  });
+
+  it("actualiza el inventario de un producto propio", async () => {
+    updateMany.mockResolvedValue({ count: 1 });
+
+    findProduct.mockResolvedValue({
+      id: "producto-1",
+      name: "Combo de Pan Artesanal",
+      quantity: 8,
+      active: false,
+    });
+
+    const result = await service.updateStock(
+      "producto-1",
+      "propietario-1",
+      { quantity: 8 },
+    );
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "producto-1",
+        business: {
+          ownerId: "propietario-1",
+          verified: true,
+        },
+      },
+      data: {
+        quantity: 8,
+      },
+    });
+
+    expect(result).toMatchObject({
+      quantity: 8,
+      active: false,
+    });
+  });
+
+  it("impide actualizar productos ajenos o de establecimientos no verificados", async () => {
+    updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.updateStock(
+        "producto-ajeno",
+        "otro-usuario",
+        { quantity: 20 },
+      ),
+    ).rejects.toThrow(
+      "Producto no encontrado o no autorizado.",
+    );
+
+    expect(findProduct).not.toHaveBeenCalled();
+  });
+
+  it("permite establecer el inventario en cero", async () => {
+    updateMany.mockResolvedValue({ count: 1 });
+
+    findProduct.mockResolvedValue({
+      id: "producto-1",
+      quantity: 0,
+      active: false,
+    });
+
+    const result = await service.updateStock(
+      "producto-1",
+      "propietario-1",
+      { quantity: 0 },
+    );
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          quantity: 0,
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({
+      quantity: 0,
+    });
+  });
+
+  it("no modifica el estado de publicación al actualizar existencias", async () => {
+    updateMany.mockResolvedValue({ count: 1 });
+
+    findProduct.mockResolvedValue({
+      id: "producto-1",
+      quantity: 5,
+      active: false,
+    });
+
+    await service.updateStock(
+      "producto-1",
+      "propietario-1",
+      { quantity: 5 },
+    );
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          quantity: 5,
+        },
+      }),
+    );
+
+    const updateArguments = updateMany.mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+
+    expect(updateArguments.data).not.toHaveProperty("active");
   });
 });

@@ -2,10 +2,12 @@
 import {
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from "@nestjs/common";
 
 import { PrismaService } from "../prisma/prisma.service.js";
 import { CreateProductDto } from "./dto/create-product.dto.js";
+import { UpdateStockDto } from "./dto/update-stock.dto.js";
 
 @Injectable()
 export class ProductsService {
@@ -98,6 +100,81 @@ export class ProductsService {
       take: 50,
       orderBy: {
         createdAt: "desc",
+      },
+    });
+  }
+
+  async findMine(ownerId: string) {
+    return this.prisma.product.findMany({
+      where: {
+        business: {
+          ownerId,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        category: true,
+        price: true,
+        originalPrice: true,
+        quantity: true,
+        unit: true,
+        active: true,
+        imagePath: true,
+        createdAt: true,
+        updatedAt: true,
+        business: {
+          select: {
+            id: true,
+            name: true,
+            verified: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 100,
+    });
+  }
+
+  async updateStock(
+    productId: string,
+    ownerId: string,
+    dto: UpdateStockDto,
+  ) {
+    const where = {
+      id: productId,
+      business: {
+        ownerId,
+        verified: true,
+      },
+    };
+
+    const result = await this.prisma.product.updateMany({
+      where,
+      data: {
+        quantity: dto.quantity,
+      },
+    });
+
+    if (result.count === 0) {
+      throw new NotFoundException(
+        "Producto no encontrado o no autorizado.",
+      );
+    }
+
+    return this.prisma.product.findFirst({
+      where,
+      select: {
+        id: true,
+        name: true,
+        quantity: true,
+        unit: true,
+        active: true,
+        updatedAt: true,
+        businessId: true,
       },
     });
   }

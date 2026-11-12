@@ -3,6 +3,9 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
+  Param,
+  ParseUUIDPipe,
   Post,
   Req,
   UseGuards,
@@ -12,6 +15,7 @@ import type { Request } from "express";
 
 import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
 import { CreateProductDto } from "./dto/create-product.dto.js";
+import { UpdateStockDto } from "./dto/update-stock.dto.js";
 import { ProductsService } from "./products.service.js";
 
 type AuthenticatedRequest = Request & {
@@ -32,6 +36,12 @@ export class ProductsController {
     return this.productsService.findAll();
   }
 
+  @Get("mine")
+  @UseGuards(JwtAuthGuard)
+  findMine(@Req() request: AuthenticatedRequest) {
+    return this.productsService.findMine(request.user.id);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   create(
@@ -39,6 +49,21 @@ export class ProductsController {
     @Body() dto: CreateProductDto,
   ) {
     return this.productsService.create(
+      request.user.id,
+      dto,
+    );
+  }
+
+  @Patch(":id/stock")
+  @UseGuards(JwtAuthGuard)
+  updateStock(
+    @Param("id", new ParseUUIDPipe({ version: "4" }))
+    productId: string,
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: UpdateStockDto,
+  ) {
+    return this.productsService.updateStock(
+      productId,
       request.user.id,
       dto,
     );
