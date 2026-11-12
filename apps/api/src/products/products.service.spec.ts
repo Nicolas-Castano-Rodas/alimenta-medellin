@@ -1,5 +1,9 @@
 
-import { ForbiddenException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from "@nestjs/common";
 import {
   beforeEach,
   describe,
@@ -296,5 +300,294 @@ describe("ProductsService", () => {
     };
 
     expect(updateArguments.data).not.toHaveProperty("active");
+  });
+
+  it("permite registrar una fecha de vencimiento futura", async () => {
+    findProduct.mockResolvedValueOnce({
+      dateType: null,
+      expirationDate: null,
+    });
+
+    updateMany.mockResolvedValue({ count: 1 });
+
+    findProduct.mockResolvedValueOnce({
+      id: "producto-1",
+      dateType: "EXPIRATION",
+      expirationDate: new Date("2099-12-31T23:59:59Z"),
+      active: false,
+    });
+
+    const result = await service.updateFoodSafety(
+      "producto-1",
+      "propietario-1",
+      {
+        dateType: "EXPIRATION",
+        expirationDate: "2099-12-31T23:59:59Z",
+      },
+    );
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "producto-1",
+        business: {
+          ownerId: "propietario-1",
+          verified: true,
+        },
+      },
+      data: {
+        expirationDate: new Date("2099-12-31T23:59:59Z"),
+        dateType: "EXPIRATION",
+        active: false,
+      },
+    });
+
+    expect(result).toMatchObject({
+      dateType: "EXPIRATION",
+      active: false,
+    });
+  });
+
+  it("rechaza fechas de vencimiento pasadas", async () => {
+    findProduct.mockResolvedValue({
+      dateType: null,
+      expirationDate: null,
+    });
+
+    await expect(
+      service.updateFoodSafety(
+        "producto-1",
+        "propietario-1",
+        {
+          dateType: "EXPIRATION",
+          expirationDate: "2020-01-01T00:00:00Z",
+        },
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rechaza fechas faltantes para tipos que requieren fecha", async () => {
+    findProduct.mockResolvedValue({
+      dateType: null,
+      expirationDate: null,
+    });
+
+    await expect(
+      service.updateFoodSafety(
+        "producto-1",
+        "propietario-1",
+        {
+          dateType: "BEST_BEFORE",
+        },
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rechaza NOT_APPLICABLE cuando existe una fecha", async () => {
+    findProduct.mockResolvedValue({
+      dateType: "EXPIRATION",
+      expirationDate: new Date("2099-12-31T23:59:59Z"),
+    });
+
+    await expect(
+      service.updateFoodSafety(
+        "producto-1",
+        "propietario-1",
+        {
+          dateType: "NOT_APPLICABLE",
+        },
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("permite retirar la fecha cuando deja de aplicar", async () => {
+    findProduct.mockResolvedValueOnce({
+      dateType: "EXPIRATION",
+      expirationDate: new Date("2099-12-31T23:59:59Z"),
+    });
+
+    updateMany.mockResolvedValue({ count: 1 });
+
+    findProduct.mockResolvedValueOnce({
+      id: "producto-1",
+      dateType: "NOT_APPLICABLE",
+      expirationDate: null,
+      active: false,
+    });
+
+    const result = await service.updateFoodSafety(
+      "producto-1",
+      "propietario-1",
+      {
+        dateType: "NOT_APPLICABLE",
+        expirationDate: null,
+      },
+    );
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          dateType: "NOT_APPLICABLE",
+          expirationDate: null,
+          active: false,
+        }),
+      }),
+    );
+
+    expect(result).toMatchObject({
+      dateType: "NOT_APPLICABLE",
+      expirationDate: null,
+      active: false,
+    });
+  });
+
+  it("impide modificar datos sanitarios de productos ajenos", async () => {
+    findProduct.mockResolvedValue(null);
+
+    await expect(
+      service.updateFoodSafety(
+        "producto-ajeno",
+        "otro-usuario",
+        {
+          batchNumber: "LOTE-NO-AUTORIZADO",
+        },
+      ),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(findProduct).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "producto-ajeno",
+          business: {
+            ownerId: "otro-usuario",
+            verified: true,
+          },
+        },
+      }),
+    );
+
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("conserva la fecha existente cuando solo se actualiza el lote", async () => {
+    const existingDate = new Date("2099-12-31T23:59:59Z");
+
+    findProduct.mockResolvedValueOnce({
+      dateType: "EXPIRATION",
+      expirationDate: existingDate,
+    });
+
+    updateMany.mockResolvedValue({ count: 1 });
+
+    findProduct.mockResolvedValueOnce({
+      id: "producto-1",
+      dateType: "EXPIRATION",
+      expirationDate: existingDate,
+      batchNumber: "LOTE-NUEVO",
+      active: false,
+    });
+
+    const result = await service.updateFoodSafety(
+      "producto-1",
+      "propietario-1",
+      {
+        batchNumber: "LOTE-NUEVO",
+      },
+    );
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          dateType: "EXPIRATION",
+          expirationDate: existingDate,
+          batchNumber: "LOTE-NUEVO",
+          active: false,
+        }),
+      }),
+    );
+
+    expect(result).toMatchObject({
+      batchNumber: "LOTE-NUEVO",
+      dateType: "EXPIRATION",
+      active: false,
+    });
+  });
+
+  it("permite registrar BEST_BEFORE con una fecha pasada sin publicar el producto", async () => {
+    const date = new Date("2020-01-01T00:00:00Z");
+
+    findProduct.mockResolvedValueOnce({
+      dateType: null,
+      expirationDate: null,
+    });
+
+    updateMany.mockResolvedValue({ count: 1 });
+
+    findProduct.mockResolvedValueOnce({
+      id: "producto-1",
+      dateType: "BEST_BEFORE",
+      expirationDate: date,
+      active: false,
+    });
+
+    const result = await service.updateFoodSafety(
+      "producto-1",
+      "propietario-1",
+      {
+        dateType: "BEST_BEFORE",
+        expirationDate: date.toISOString(),
+      },
+    );
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          dateType: "BEST_BEFORE",
+          expirationDate: date,
+          active: false,
+        }),
+      }),
+    );
+
+    expect(result).toMatchObject({
+      dateType: "BEST_BEFORE",
+      active: false,
+    });
+  });
+
+  it("rechaza una actualización si el producto deja de estar autorizado", async () => {
+    findProduct.mockResolvedValueOnce({
+      dateType: "EXPIRATION",
+      expirationDate: new Date("2099-12-31T23:59:59Z"),
+    });
+
+    updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.updateFoodSafety(
+        "producto-1",
+        "propietario-1",
+        {
+          batchNumber: "LOTE-002",
+        },
+      ),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "producto-1",
+          business: {
+            ownerId: "propietario-1",
+            verified: true,
+          },
+        },
+      }),
+    );
   });
 });

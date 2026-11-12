@@ -48,6 +48,11 @@ model Product {
   unit          String
   imagePath     String?
   active        Boolean @default(false)
+  expirationDate   DateTime?
+  dateType         FoodDateType?
+  storageCondition FoodStorageCondition?
+  batchNumber      String?
+  safetyNotes      String?
 
   businessId String   @db.Uuid
   business   Business @relation(fields: [businessId], references: [id])
@@ -64,4 +69,16 @@ enum UserRole {
   BUSINESS
   FOUNDATION
   ADMIN
+}
+
+enum FoodDateType {
+  EXPIRATION
+  BEST_BEFORE
+  NOT_APPLICABLE
+}
+
+enum FoodStorageCondition {
+  AMBIENT
+  REFRIGERATED
+  FROZEN
 }

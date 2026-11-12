@@ -1,12 +1,15 @@
 
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 
+import { FoodDateType } from "../generated/prisma/enums.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { CreateProductDto } from "./dto/create-product.dto.js";
+import { UpdateFoodSafetyDto } from "./dto/update-food-safety.dto.js";
 import { UpdateStockDto } from "./dto/update-stock.dto.js";
 
 @Injectable()
@@ -175,6 +178,120 @@ export class ProductsService {
         active: true,
         updatedAt: true,
         businessId: true,
+      },
+    });
+  }
+
+  async updateFoodSafety(
+    productId: string,
+    ownerId: string,
+    dto: UpdateFoodSafetyDto,
+  ) {
+    const where = {
+      id: productId,
+      business: {
+        ownerId,
+        verified: true,
+      },
+    };
+
+    const existingProduct = await this.prisma.product.findFirst({
+      where,
+      select: {
+        dateType: true,
+        expirationDate: true,
+      },
+    });
+
+    if (!existingProduct) {
+      throw new NotFoundException(
+        "Producto no encontrado o no autorizado.",
+      );
+    }
+
+    const dateType = dto.dateType ?? existingProduct.dateType;
+
+    const expirationDate =
+      dto.expirationDate === undefined
+        ? existingProduct.expirationDate
+        : dto.expirationDate === null
+          ? null
+          : new Date(dto.expirationDate);
+
+    if (
+      expirationDate !== null &&
+      Number.isNaN(expirationDate.getTime())
+    ) {
+      throw new BadRequestException(
+        "La fecha proporcionada no es válida.",
+      );
+    }
+
+    if (dateType === FoodDateType.NOT_APPLICABLE) {
+      if (expirationDate !== null) {
+        throw new BadRequestException(
+          "Los productos sin fecha aplicable no pueden tener una fecha de vencimiento.",
+        );
+      }
+    }
+
+    if (
+      dateType === FoodDateType.EXPIRATION ||
+      dateType === FoodDateType.BEST_BEFORE
+    ) {
+      if (expirationDate === null) {
+        throw new BadRequestException(
+          "Este tipo de fecha requiere una fecha registrada.",
+        );
+      }
+    }
+
+    if (
+      dateType === FoodDateType.EXPIRATION &&
+      expirationDate !== null &&
+      expirationDate.getTime() <= Date.now()
+    ) {
+      throw new BadRequestException(
+        "No se puede registrar una fecha de vencimiento pasada o actual.",
+      );
+    }
+
+    const result = await this.prisma.product.updateMany({
+      where,
+      data: {
+        expirationDate,
+        dateType,
+        ...(dto.storageCondition !== undefined && {
+          storageCondition: dto.storageCondition,
+        }),
+        ...(dto.batchNumber !== undefined && {
+          batchNumber: dto.batchNumber,
+        }),
+        ...(dto.safetyNotes !== undefined && {
+          safetyNotes: dto.safetyNotes,
+        }),
+        active: false,
+      },
+    });
+
+    if (result.count === 0) {
+      throw new NotFoundException(
+        "Producto no encontrado o no autorizado.",
+      );
+    }
+
+    return this.prisma.product.findFirst({
+      where,
+      select: {
+        id: true,
+        name: true,
+        expirationDate: true,
+        dateType: true,
+        storageCondition: true,
+        batchNumber: true,
+        safetyNotes: true,
+        active: true,
+        updatedAt: true,
       },
     });
   }
