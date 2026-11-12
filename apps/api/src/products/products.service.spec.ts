@@ -12,6 +12,7 @@ import {
   vi,
 } from "vitest";
 
+import { Prisma } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { ProductsService } from "./products.service.js";
 
@@ -589,5 +590,138 @@ describe("ProductsService", () => {
         },
       }),
     );
+  });
+
+  it("actualiza los precios de un producto propio", async () => {
+    updateMany.mockResolvedValue({ count: 1 });
+
+    findProduct.mockResolvedValue({
+      id: "producto-1",
+      name: "Combo de Pan Artesanal",
+      price: new Prisma.Decimal("7500"),
+      originalPrice: new Prisma.Decimal("15000"),
+      quantity: 8,
+      active: false,
+    });
+
+    const result = await service.updatePrice(
+      "producto-1",
+      "propietario-1",
+      {
+        price: 7500,
+        originalPrice: 15000,
+      },
+    );
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "producto-1",
+        business: {
+          ownerId: "propietario-1",
+          verified: true,
+        },
+      },
+      data: {
+        price: new Prisma.Decimal("7500"),
+        originalPrice: new Prisma.Decimal("15000"),
+        active: false,
+      },
+    });
+
+    expect(result.discountPercentage).toBe(50);
+    expect(result.active).toBe(false);
+  });
+
+  it("calcula correctamente descuentos con decimales", async () => {
+    updateMany.mockResolvedValue({ count: 1 });
+
+    findProduct.mockResolvedValue({
+      id: "producto-1",
+      price: new Prisma.Decimal("8500"),
+      originalPrice: new Prisma.Decimal("15000"),
+      quantity: 8,
+      active: false,
+    });
+
+    const result = await service.updatePrice(
+      "producto-1",
+      "propietario-1",
+      {
+        price: 8500,
+        originalPrice: 15000,
+      },
+    );
+
+    expect(result.discountPercentage).toBe(43.33);
+  });
+
+  it("rechaza un precio de oferta mayor al original", async () => {
+    await expect(
+      service.updatePrice(
+        "producto-1",
+        "propietario-1",
+        {
+          price: 20000,
+          originalPrice: 15000,
+        },
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rechaza precios negativos y valores no finitos", async () => {
+    await expect(
+      service.updatePrice(
+        "producto-1",
+        "propietario-1",
+        {
+          price: -500,
+          originalPrice: 15000,
+        },
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    await expect(
+      service.updatePrice(
+        "producto-1",
+        "propietario-1",
+        {
+          price: Number.POSITIVE_INFINITY,
+          originalPrice: 15000,
+        },
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("impide actualizar precios de productos ajenos", async () => {
+    updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.updatePrice(
+        "producto-ajeno",
+        "otro-usuario",
+        {
+          price: 5000,
+          originalPrice: 10000,
+        },
+      ),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "producto-ajeno",
+          business: {
+            ownerId: "otro-usuario",
+            verified: true,
+          },
+        },
+      }),
+    );
+
+    expect(findProduct).not.toHaveBeenCalled();
   });
 });

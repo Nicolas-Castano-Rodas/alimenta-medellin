@@ -6,10 +6,12 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 
+import { Prisma } from "../generated/prisma/client.js";
 import { FoodDateType } from "../generated/prisma/enums.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { CreateProductDto } from "./dto/create-product.dto.js";
 import { UpdateFoodSafetyDto } from "./dto/update-food-safety.dto.js";
+import { UpdateProductPriceDto } from "./dto/update-product-price.dto.js";
 import { UpdateStockDto } from "./dto/update-stock.dto.js";
 
 @Injectable()
@@ -294,5 +296,86 @@ export class ProductsService {
         updatedAt: true,
       },
     });
+  }
+
+  async updatePrice(
+    productId: string,
+    ownerId: string,
+    dto: UpdateProductPriceDto,
+  ) {
+    if (
+      !Number.isFinite(dto.price) ||
+      !Number.isFinite(dto.originalPrice) ||
+      dto.price <= 0 ||
+      dto.originalPrice <= 0
+    ) {
+      throw new BadRequestException(
+        "Los precios deben ser valores positivos.",
+      );
+    }
+
+    const price = new Prisma.Decimal(dto.price);
+    const originalPrice = new Prisma.Decimal(dto.originalPrice);
+
+    if (price.greaterThan(originalPrice)) {
+      throw new BadRequestException(
+        "El precio de oferta no puede superar el precio original.",
+      );
+    }
+
+    const where = {
+      id: productId,
+      business: {
+        ownerId,
+        verified: true,
+      },
+    };
+
+    const updated = await this.prisma.product.updateMany({
+      where,
+      data: {
+        price,
+        originalPrice,
+        active: false,
+      },
+    });
+
+    if (updated.count === 0) {
+      throw new NotFoundException(
+        "Producto no encontrado o no autorizado.",
+      );
+    }
+
+    const product = await this.prisma.product.findFirst({
+      where,
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        originalPrice: true,
+        quantity: true,
+        active: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException(
+        "Producto no encontrado o no autorizado.",
+      );
+    }
+
+    const discountPercentage = new Prisma.Decimal(100)
+      .minus(
+        product.price
+          .div(product.originalPrice)
+          .mul(100),
+      )
+      .toDecimalPlaces(2);
+
+    return {
+      ...product,
+      discountPercentage: discountPercentage.toNumber(),
+    };
   }
 }

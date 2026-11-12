@@ -16,6 +16,7 @@ import type { Request } from "express";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
 import { CreateProductDto } from "./dto/create-product.dto.js";
 import { UpdateFoodSafetyDto } from "./dto/update-food-safety.dto.js";
+import { UpdateProductPriceDto } from "./dto/update-product-price.dto.js";
 import { UpdateStockDto } from "./dto/update-stock.dto.js";
 import { ProductsService } from "./products.service.js";
 
@@ -79,6 +80,21 @@ export class ProductsController {
     @Body() dto: UpdateFoodSafetyDto,
   ) {
     return this.productsService.updateFoodSafety(
+      productId,
+      request.user.id,
+      dto,
+    );
+  }
+
+  @Patch(":id/price")
+  @UseGuards(JwtAuthGuard)
+  updatePrice(
+    @Param("id", new ParseUUIDPipe({ version: "4" }))
+    productId: string,
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: UpdateProductPriceDto,
+  ) {
+    return this.productsService.updatePrice(
       productId,
       request.user.id,
       dto,
