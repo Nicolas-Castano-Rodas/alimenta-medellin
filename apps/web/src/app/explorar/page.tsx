@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { Suspense } from "react";
 
 import ExploreClient from "./explore-client";
@@ -5,6 +6,8 @@ import { getCatalogProducts } from "@/lib/catalog-api";
 import type { Product } from "@/lib/products";
 
 async function CatalogContent() {
+  await connection();
+
   const apiProducts = await getCatalogProducts();
 
   const products: Product[] = apiProducts.map((product) => ({

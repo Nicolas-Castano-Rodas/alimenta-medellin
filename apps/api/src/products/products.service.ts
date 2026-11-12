@@ -169,6 +169,11 @@ export class ProductsService {
         unit: true,
         active: true,
         imagePath: true,
+        dateType: true,
+        expirationDate: true,
+        storageCondition: true,
+        batchNumber: true,
+        safetyNotes: true,
         createdAt: true,
         updatedAt: true,
         business: {
