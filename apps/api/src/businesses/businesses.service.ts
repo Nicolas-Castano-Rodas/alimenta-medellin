@@ -1,11 +1,14 @@
 
 import {
+  BadRequestException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
 
 import { PrismaService } from "../prisma/prisma.service.js";
 import { CreateBusinessDto } from "./dto/create-business.dto.js";
+import { UpdateBusinessDto } from "./dto/update-business.dto.js";
 
 @Injectable()
 export class BusinessesService {
@@ -94,6 +97,61 @@ export class BusinessesService {
         city: true,
         verified: true,
         createdAt: true,
+      },
+    });
+  }
+
+  async update(
+    businessId: string,
+    ownerId: string,
+    dto: UpdateBusinessDto,
+  ) {
+    const data = {
+      ...(dto.name !== undefined && {
+        name: dto.name,
+      }),
+      ...(dto.address !== undefined && {
+        address: dto.address,
+      }),
+      ...(dto.city !== undefined && {
+        city: dto.city,
+      }),
+    };
+
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException(
+        "Debes proporcionar al menos un campo para actualizar.",
+      );
+    }
+
+    const result = await this.prisma.business.updateMany({
+      where: {
+        id: businessId,
+        ownerId,
+        verified: false,
+      },
+      data,
+    });
+
+    if (result.count === 0) {
+      throw new NotFoundException(
+        "Establecimiento no encontrado o no disponible para edición.",
+      );
+    }
+
+    return this.prisma.business.findFirst({
+      where: {
+        id: businessId,
+        ownerId,
+      },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        verified: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
   }

@@ -18,12 +18,14 @@ describe("BusinessesService", () => {
   const findFirst = vi.fn();
   const create = vi.fn();
   const findUnique = vi.fn();
+  const updateMany = vi.fn();
 
   const prisma = {
     business: {
       findMany,
       findFirst,
       create,
+      updateMany,
     },
     user: {
       findUnique,
@@ -119,6 +121,122 @@ describe("BusinessesService", () => {
         where: {
           id: "establecimiento-1",
           verified: true,
+        },
+      }),
+    );
+  });
+
+  it("permite actualizar un establecimiento propio pendiente", async () => {
+    updateMany.mockResolvedValue({ count: 1 });
+
+    findFirst.mockResolvedValue({
+      id: "establecimiento-1",
+      name: "Panaderia Actualizada",
+      verified: false,
+    });
+
+    const result = await service.update(
+      "establecimiento-1",
+      "propietario-1",
+      { name: "Panaderia Actualizada" },
+    );
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "establecimiento-1",
+        ownerId: "propietario-1",
+        verified: false,
+      },
+      data: {
+        name: "Panaderia Actualizada",
+      },
+    });
+
+    expect(result).toMatchObject({
+      name: "Panaderia Actualizada",
+      verified: false,
+    });
+  });
+
+  it("impide modificar establecimientos de otro propietario", async () => {
+    updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.update(
+        "establecimiento-1",
+        "otro-propietario",
+        { name: "Cambio no autorizado" },
+      ),
+    ).rejects.toMatchObject({
+      status: 404,
+    });
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "establecimiento-1",
+          ownerId: "otro-propietario",
+          verified: false,
+        },
+      }),
+    );
+
+    expect(findFirst).not.toHaveBeenCalled();
+  });
+
+  it("impide modificar establecimientos verificados", async () => {
+    updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.update(
+        "establecimiento-verificado",
+        "propietario-1",
+        { name: "Cambio no permitido" },
+      ),
+    ).rejects.toMatchObject({
+      status: 404,
+    });
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          verified: false,
+        }),
+      }),
+    );
+  });
+
+  it("rechaza actualizaciones sin campos", async () => {
+    await expect(
+      service.update(
+        "establecimiento-1",
+        "propietario-1",
+        {},
+      ),
+    ).rejects.toMatchObject({
+      status: 400,
+    });
+
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it("solo modifica los campos proporcionados", async () => {
+    updateMany.mockResolvedValue({ count: 1 });
+    findFirst.mockResolvedValue({
+      id: "establecimiento-1",
+      city: "Envigado",
+    });
+
+    await service.update(
+      "establecimiento-1",
+      "propietario-1",
+      { city: "Envigado" },
+    );
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          city: "Envigado",
         },
       }),
     );

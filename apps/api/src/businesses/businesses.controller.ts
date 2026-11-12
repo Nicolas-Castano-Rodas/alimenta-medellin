@@ -5,6 +5,7 @@ import {
   Get,
   NotFoundException,
   Param,
+  Patch,
   ParseUUIDPipe,
   Post,
   Req,
@@ -16,6 +17,7 @@ import type { Request } from "express";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
 import { BusinessesService } from "./businesses.service.js";
 import { CreateBusinessDto } from "./dto/create-business.dto.js";
+import { UpdateBusinessDto } from "./dto/update-business.dto.js";
 
 type AuthenticatedRequest = Request & {
   user: {
@@ -63,6 +65,21 @@ export class BusinessesController {
     @Body() dto: CreateBusinessDto,
   ) {
     return this.businessesService.create(
+      request.user.id,
+      dto,
+    );
+  }
+
+  @Patch(":id")
+  @UseGuards(JwtAuthGuard)
+  update(
+    @Param("id", new ParseUUIDPipe({ version: "4" }))
+    businessId: string,
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: UpdateBusinessDto,
+  ) {
+    return this.businessesService.update(
+      businessId,
       request.user.id,
       dto,
     );
