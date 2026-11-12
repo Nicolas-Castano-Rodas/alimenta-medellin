@@ -724,4 +724,42 @@ describe("ProductsService", () => {
 
     expect(findProduct).not.toHaveBeenCalled();
   });
+
+  it("consulta públicamente solo productos activos y disponibles", async () => {
+    findProduct.mockResolvedValue({
+      id: "producto-1",
+      name: "Producto disponible",
+      active: true,
+      quantity: 5,
+    });
+
+    const result = await service.findPublicById("producto-1");
+
+    expect(findProduct).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "producto-1",
+          active: true,
+          quantity: {
+            gt: 0,
+          },
+          business: {
+            verified: true,
+          },
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({
+      id: "producto-1",
+    });
+  });
+
+  it("rechaza el acceso público a productos no disponibles", async () => {
+    findProduct.mockResolvedValue(null);
+
+    await expect(
+      service.findPublicById("producto-inactivo"),
+    ).rejects.toThrow(NotFoundException);
+  });
 });

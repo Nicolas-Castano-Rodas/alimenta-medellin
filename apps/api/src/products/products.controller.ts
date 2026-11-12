@@ -44,6 +44,14 @@ export class ProductsController {
     return this.productsService.findMine(request.user.id);
   }
 
+  @Get(":id")
+  findPublicById(
+    @Param("id", new ParseUUIDPipe({ version: "4" }))
+    productId: string,
+  ) {
+    return this.productsService.findPublicById(productId);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   create(

@@ -109,6 +109,48 @@ export class ProductsService {
     });
   }
 
+  async findPublicById(productId: string) {
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id: productId,
+        active: true,
+        quantity: {
+          gt: 0,
+        },
+        business: {
+          verified: true,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        category: true,
+        price: true,
+        originalPrice: true,
+        quantity: true,
+        unit: true,
+        imagePath: true,
+        storageCondition: true,
+        business: {
+          select: {
+            id: true,
+            name: true,
+            city: true,
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException(
+        "Producto no encontrado o no disponible.",
+      );
+    }
+
+    return product;
+  }
+
   async findMine(ownerId: string) {
     return this.prisma.product.findMany({
       where: {

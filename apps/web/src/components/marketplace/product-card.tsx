@@ -61,9 +61,9 @@ export function ProductCard({ product }: ProductCardProps) {
 
           <div className="mt-4 space-y-1 text-sm text-[#68786D]">
             <p>🏪 {product.business}</p>
-            <p>📍 {product.location}, Medellín</p>
+            <p>📍 {product.location}</p>
             <p>
-              📦 Disponibilidad de ejemplo: {product.quantity} {product.unit}
+              📦 Disponibles: {product.quantity} {product.unit}
             </p>
           </div>
 
@@ -81,9 +81,6 @@ export function ProductCard({ product }: ProductCardProps) {
             Ver detalles del producto
           </div>
 
-          <p className="mt-3 text-center text-xs text-[#68786D]">
-            Datos ficticios de demostración
-          </p>
         </div>
       </Link>
     </article>

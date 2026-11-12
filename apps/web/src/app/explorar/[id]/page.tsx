@@ -1,50 +1,59 @@
-
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatPrice, products } from "@/lib/products";
+import { Suspense } from "react";
+
+import { getCatalogProductById } from "@/lib/catalog-api";
+import { formatPrice } from "@/lib/products";
+
+export const metadata: Metadata = {
+  title: "Detalle del producto | ALIMENTA",
+  description:
+    "Consulta alimentos publicados por establecimientos verificados en ALIMENTA.",
+};
 
 type PageProps = {
   params: Promise<{ id: string }>;
 };
 
-export function generateStaticParams() {
-  return products.map((product) => ({
-    id: String(product.id),
-  }));
+const UUID_V4 =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function getStorageLabel(
+  value: "AMBIENT" | "REFRIGERATED" | "FROZEN" | null,
+) {
+  switch (value) {
+    case "AMBIENT":
+      return "Conservación a temperatura ambiente";
+    case "REFRIGERATED":
+      return "Requiere refrigeración";
+    case "FROZEN":
+      return "Requiere congelación";
+    default:
+      return "Información de conservación no disponible";
+  }
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+async function ProductDetails({ params }: PageProps) {
   const { id } = await params;
-  const product = products.find((item) => String(item.id) === id);
 
-  if (!product) {
-    return { title: "Producto no encontrado | ALIMENTA" };
+  if (!UUID_V4.test(id)) {
+    notFound();
   }
 
-  return {
-    title: `${product.name} | ALIMENTA`,
-    description: `Ficha de demostración de ${product.name} en Medellín.`,
-  };
-}
-
-async function ProductDetails({
-  params,
-}: PageProps) {
-  const { id } = await params;
-  const product = products.find((item) => String(item.id) === id);
+  const product = await getCatalogProductById(id);
 
   if (!product) {
     notFound();
   }
 
-  const discount = Math.round(
-    (1 - product.price / product.originalPrice) * 100,
-  );
+  const price = Number(product.price);
+  const originalPrice = Number(product.originalPrice);
+
+  const discount =
+    originalPrice > 0
+      ? Math.round((1 - price / originalPrice) * 100)
+      : 0;
 
   return (
     <main className="min-h-screen bg-[#F7F6EF] text-[#123B2C]">
@@ -64,8 +73,13 @@ async function ProductDetails({
       </header>
 
       <div className="mx-auto max-w-7xl px-5 py-12">
-        <nav aria-label="Ruta de navegación" className="mb-8 text-sm text-[#68786D]">
-          <Link href="/" className="hover:underline">Inicio</Link>
+        <nav
+          aria-label="Ruta de navegación"
+          className="mb-8 text-sm text-[#68786D]"
+        >
+          <Link href="/" className="hover:underline">
+            Inicio
+          </Link>
           {" / "}
           <Link href="/explorar" className="hover:underline">
             Explorar
@@ -76,27 +90,18 @@ async function ProductDetails({
 
         <div className="grid gap-10 lg:grid-cols-2">
           <div className="relative flex min-h-[350px] items-center justify-center rounded-[2.5rem] bg-[#E4EFE0] sm:min-h-[500px]">
-            {product.imagePath ? (
-              <Image
-                src={product.imagePath}
-                alt={`Fotografía ilustrativa de ${product.name}`}
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="rounded-[2.5rem] object-cover"
-                priority
-              />
-            ) : (
-              <span
-                className="text-9xl sm:text-[180px]"
-                aria-hidden="true"
-              >
-                {product.emoji}
+            <span
+              className="text-9xl sm:text-[180px]"
+              aria-hidden="true"
+            >
+              🥬
+            </span>
+
+            {discount > 0 && (
+              <span className="absolute left-6 top-6 z-10 rounded-full bg-[#123B2C] px-5 py-3 font-bold text-white">
+                -{discount}%
               </span>
             )}
-
-            <span className="absolute left-6 top-6 z-10 rounded-full bg-[#123B2C] px-5 py-3 font-bold text-white">
-              -{discount}% de ejemplo
-            </span>
           </div>
 
           <section className="rounded-[2.5rem] bg-white p-7 shadow-sm sm:p-10">
@@ -109,47 +114,44 @@ async function ProductDetails({
             </h1>
 
             <p className="mt-5 leading-8 text-[#68786D]">
-              {product.description}
-            </p>
-
-            <p className="mt-3 text-sm font-semibold text-[#4E8B55]">
-              Publicación ficticia de demostración. No disponible para compra.
+              {product.description ??
+                "El establecimiento no ha registrado una descripción."}
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <span className="text-4xl font-black">
-                {formatPrice(product.price)}
+                {formatPrice(price)}
               </span>
-              <span className="text-lg text-[#87978B] line-through">
-                {formatPrice(product.originalPrice)}
-              </span>
+
+              {originalPrice > price && (
+                <span className="text-lg text-[#87978B] line-through">
+                  {formatPrice(originalPrice)}
+                </span>
+              )}
             </div>
 
             <div className="mt-10 space-y-5 rounded-3xl bg-[#F1F6ED] p-6">
               <div>
-                <p className="text-sm text-[#68786D]">Establecimiento</p>
-                <p className="mt-1 font-bold">🏪 {product.business}</p>
-              </div>
-
-              <div>
-                <p className="text-sm text-[#68786D]">Ubicación de ejemplo</p>
+                <p className="text-sm text-[#68786D]">
+                  Establecimiento
+                </p>
                 <p className="mt-1 font-bold">
-                  📍 {product.location}, Medellín
+                  🏪 {product.business.name}
                 </p>
               </div>
 
               <div>
                 <p className="text-sm text-[#68786D]">
-                  Disponibilidad y recogida
+                  Ciudad
                 </p>
                 <p className="mt-1 font-bold">
-                  Pendientes de implementación
+                  📍 {product.business.city}
                 </p>
               </div>
 
               <div>
                 <p className="text-sm text-[#68786D]">
-                  Cantidad ilustrativa
+                  Existencias registradas
                 </p>
                 <p className="mt-1 font-bold">
                   📦 {product.quantity} {product.unit}
@@ -158,28 +160,28 @@ async function ProductDetails({
 
               <div>
                 <p className="text-sm text-[#68786D]">
-                  Información de conservación
+                  Conservación declarada
                 </p>
                 <p className="mt-1 font-bold">
-                  {product.storage}
+                  {getStorageLabel(product.storageCondition)}
                 </p>
               </div>
 
               <div>
                 <p className="text-sm text-[#68786D]">
-                  Condiciones de recogida
+                  Recogida
                 </p>
                 <p className="mt-1 font-bold">
-                  {product.pickup}
+                  Pendiente de habilitación
                 </p>
               </div>
             </div>
 
             <div className="mt-8 rounded-2xl bg-[#DCEBDD] p-5 text-sm leading-6">
-              <strong>Vista de demostración.</strong> Las reservas,
-              compras y donaciones todavía no están habilitadas.
-              Antes de publicar productos reales se incorporarán
-              controles de seguridad alimentaria y trazabilidad.
+              Las reservas y compras todavía no están habilitadas.
+              La información de conservación es declarada por el
+              establecimiento y no constituye una certificación
+              sanitaria.
             </div>
 
             <Link
@@ -201,20 +203,11 @@ export default function ProductDetailPage(props: PageProps) {
       fallback={
         <main className="min-h-screen bg-[#F7F6EF] px-5 py-16 text-[#123B2C]">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-10 h-8 w-48 animate-pulse rounded-xl bg-[#DCEBDD]" />
-
-            <div className="grid gap-10 lg:grid-cols-2">
-              <div className="min-h-[350px] animate-pulse rounded-[2.5rem] bg-[#DCEBDD] sm:min-h-[500px]" />
-
+            <div className="h-10 w-48 animate-pulse rounded-xl bg-[#DCEBDD]" />
+            <div className="mt-10 grid gap-10 lg:grid-cols-2">
+              <div className="min-h-[350px] animate-pulse rounded-[2.5rem] bg-[#DCEBDD]" />
               <div className="rounded-[2.5rem] bg-white p-10">
-                <div className="h-5 w-32 animate-pulse rounded-lg bg-[#DCEBDD]" />
-                <div className="mt-6 h-12 w-3/4 animate-pulse rounded-xl bg-[#DCEBDD]" />
-                <div className="mt-8 h-6 w-full animate-pulse rounded-lg bg-[#EAF1E4]" />
-                <div className="mt-4 h-6 w-2/3 animate-pulse rounded-lg bg-[#EAF1E4]" />
-
-                <p className="mt-10 text-sm font-medium text-[#4E8B55]">
-                  Cargando información del producto...
-                </p>
+                <p>Cargando información del producto...</p>
               </div>
             </div>
           </div>
