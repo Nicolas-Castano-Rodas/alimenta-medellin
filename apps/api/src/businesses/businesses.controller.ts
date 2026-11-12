@@ -1,12 +1,28 @@
 
 import {
+  Body,
   Controller,
   Get,
   NotFoundException,
   Param,
   ParseUUIDPipe,
+  Post,
+  Req,
+  UseGuards,
 } from "@nestjs/common";
+
+import type { Request } from "express";
+
+import { JwtAuthGuard } from "../auth/jwt-auth.guard.js";
 import { BusinessesService } from "./businesses.service.js";
+import { CreateBusinessDto } from "./dto/create-business.dto.js";
+
+type AuthenticatedRequest = Request & {
+  user: {
+    id: string;
+    role: string;
+  };
+};
 
 @Controller("businesses")
 export class BusinessesController {
@@ -17,6 +33,12 @@ export class BusinessesController {
   @Get()
   findAll() {
     return this.businessesService.findAll();
+  }
+
+  @Get("mine")
+  @UseGuards(JwtAuthGuard)
+  findMine(@Req() request: AuthenticatedRequest) {
+    return this.businessesService.findMine(request.user.id);
   }
 
   @Get(":id")
@@ -32,5 +54,17 @@ export class BusinessesController {
     }
 
     return business;
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  create(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: CreateBusinessDto,
+  ) {
+    return this.businessesService.create(
+      request.user.id,
+      dto,
+    );
   }
 }
