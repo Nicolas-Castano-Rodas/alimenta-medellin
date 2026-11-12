@@ -1,5 +1,6 @@
 
 import Link from "next/link";
+import AuthNavigation from "@/components/auth/auth-navigation";
 
 const categories = [
   { icon: "🥬", name: "Frutas y verduras", detail: "Productos frescos" },
@@ -59,12 +60,17 @@ export default function Home() {
             </a>
           </div>
 
-          <Link
-            href="/explorar"
-            className="rounded-full bg-[#123B2C] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#285843]"
-          >
-            Explorar
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/explorar"
+              className="rounded-full bg-[#123B2C] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#285843]"
+            >
+              Explorar
+            </Link>
+            <div className="rounded-full bg-[#123B2C] px-4 py-2">
+              <AuthNavigation />
+            </div>
+          </div>
         </nav>
       </header>
 
